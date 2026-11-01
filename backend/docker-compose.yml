@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hvavan-skin-backend
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - API_PREFIX=api/v1
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - UDS_API_URL=${UDS_API_URL}
+      - UDS_API_KEY=${UDS_API_KEY}
+      - MBANK_CLIENT_ID=${MBANK_CLIENT_ID}
+      - MBANK_SECRET_KEY=${MBANK_SECRET_KEY}
+      - O_MONEY_CLIENT_ID=${O_MONEY_CLIENT_ID}
+      - O_MONEY_SECRET_KEY=${O_MONEY_SECRET_KEY}
+      - ELCART_CLIENT_ID=${ELCART_CLIENT_ID}
+      - ELCART_SECRET_KEY=${ELCART_SECRET_KEY}
+      - BALANCE_CLIENT_ID=${BALANCE_CLIENT_ID}
+      - BALANCE_SECRET_KEY=${BALANCE_SECRET_KEY}
+      - FINIK_CLIENT_ID=${FINIK_CLIENT_ID}
+      - FINIK_SECRET_KEY=${FINIK_SECRET_KEY}
+      - OPTIMA_BANK_CLIENT_ID=${OPTIMA_BANK_CLIENT_ID}
+      - OPTIMA_BANK_SECRET_KEY=${OPTIMA_BANK_SECRET_KEY}
+      - BAKAI_BANK_CLIENT_ID=${BAKAI_BANK_CLIENT_ID}
+      - BAKAI_BANK_SECRET_KEY=${BAKAI_BANK_SECRET_KEY}
+      - WHATSAPP_API_URL=${WHATSAPP_API_URL}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - PUSH_API_KEY=${PUSH_API_KEY}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-5242880}
+      - UPLOAD_PATH=${UPLOAD_PATH:-uploads}
+    restart: unless-stopped
+    networks:
+      - hvavan-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  hvavan-network:
+    driver: bridge

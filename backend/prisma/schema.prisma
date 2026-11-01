@@ -1,0 +1,1211 @@
+// Prisma Schema for HVAVAN Skin
+// Full PostgreSQL database schema based on HVAVAN SKIN DATABASE.md
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// USERS & AUTHENTICATION
+// ==========================================
+
+model User {
+  id                  String   @id @default(uuid())
+  firstName           String?  @db.VarChar(100)
+  lastName            String?  @db.VarChar(100)
+  phone               String?  @unique @db.VarChar(20)
+  email               String?  @unique @db.VarChar(255)
+  birthDate           DateTime? @db.Date
+  gender              String?  @db.VarChar(20)
+  avatarUrl           String?  @db.Text
+  preferredLanguage   String?  @default("ru") @db.VarChar(5)
+  isActive            Boolean  @default(true)
+  phoneVerifiedAt     DateTime? @db.DateTime
+  emailVerifiedAt     DateTime? @db.DateTime
+  deletedAt           DateTime? @db.DateTime
+  createdAt           DateTime @default(now()) @db.DateTime
+  updatedAt           DateTime @default(now()) @db.DateTime
+
+  // Relations
+  authProviders       UserAuthProvider[]
+  verificationCodes   VerificationCode[]
+  addresses           UserAddress[]
+  employeeProfile     EmployeeProfile?
+  roles               UserRole[]
+  permissions         UserPermission[]
+  employeeBranches    EmployeeBranchAssignment[]
+  orders              Order[]
+  favorites           Favorite[]
+  reviews             Review[]
+  notifications       Notification[]
+  udsAccount          UDSAccount?
+  consultations       Consultation[]
+  skinTests           SkinTest[]
+  auditLogs           AuditLog[]
+  banners             Banner[]
+  contentPages        ContentPage[]
+  branches            BranchContact[]
+  rolesAssigned       Role[]
+  permissionsAssigned Permission[]
+  employeesAssigned   EmployeePermission[]
+  employeesAssignedTo Consultation[]
+  employeeBranchesAssigned EmployeeBranchAssignment[]
+  inventoryTransactions InventoryTransaction[]
+  products            Product[]
+  priceChanges        ProductPrice[]
+  cart                Cart[]
+  paymentReceipts     PaymentReceipt[]
+  refunds             Refund[]
+  promotions          Promotion[]
+  promoCodes          PromoCode[]
+  skinTestQuestions   SkinTestQuestion[]
+  skinRecommendations SkinRecommendation[]
+  notificationsSent   NotificationDelivery[]
+  pushDevices         PushDevice[]
+  socialMediaSettings SocialMediaSetting[]
+  socialMediaPosts    SocialMediaPost[]
+  auditLogsCreated    AuditLog[]
+  systemSettings      SystemSetting[]
+
+  @@map("users")
+}
+
+model UserAuthProvider {
+  id                String   @id @default(uuid())
+  userId            String   @db.VarChar(36)
+  provider          String   @db.VarChar(30)
+  providerUserId    String?  @db.VarChar(255)
+  passwordHash      String?  @db.Text
+  createdAt         DateTime @default(now()) @db.DateTime
+  updatedAt         DateTime @default(now()) @db.DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("user_auth_providers")
+}
+
+model VerificationCode {
+  id          String   @id @default(uuid())
+  phone       String   @db.VarChar(20)
+  codeHash    String   @db.Text
+  purpose     String   @db.VarChar(30)
+  expiresAt   DateTime @db.DateTime
+  attempts    Int      @default(0)
+  verifiedAt  DateTime? @db.DateTime
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  @@map("verification_codes")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String   @db.VarChar(36)
+  refreshToken String   @db.Text
+  deviceName   String?  @db.VarChar(255)
+  deviceType   String?  @db.VarChar(50)
+  ipAddress    String?  @db.Inet
+  userAgent    String?  @db.Text
+  expiresAt    DateTime @db.DateTime
+  revokedAt    DateTime? @db.DateTime
+  createdAt    DateTime @default(now()) @db.DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model UserAddress {
+  id              String   @id @default(uuid())
+  userId          String   @db.VarChar(36)
+  title           String?  @db.VarChar(100)
+  city            String   @db.VarChar(100)
+  street          String   @db.VarChar(255)
+  building        String?  @db.VarChar(50)
+  apartment       String?  @db.VarChar(50)
+  entrance        String?  @db.VarChar(50)
+  floor           String?  @db.VarChar(20)
+  comment         String?  @db.Text
+  latitude        Float?   @db.Decimal
+  longitude       Float?   @db.Decimal
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_addresses")
+}
+
+// ==========================================
+// EMPLOYEES, ROLES & PERMISSIONS
+// ==========================================
+
+model EmployeeProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique @db.VarChar(36)
+  employeeNumber  String?  @unique @db.VarChar(50)
+  position        String?  @db.VarChar(100)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions EmployeePermission[]
+  branchAssignments EmployeeBranchAssignment[]
+  consultationsAssigned Consultation[]
+  ordersManaged Order[]
+  refundsProcessed Refund[]
+  auditsCreated AuditLog[]
+  promotionsCreated Promotion[]
+  promoCodesCreated PromoCode[]
+  skinTestQuestionsCreated SkinTestQuestion[]
+  skinRecommendationsCreated SkinRecommendation[]
+  bannersCreated Banner[]
+  contentPagesUpdated ContentPage[]
+  systemSettingsUpdated SystemSetting[]
+
+  @@map("employee_profiles")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  users      UserRole[]
+  permissions RolePermission[]
+  templates  PermissionTemplate[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId      String   @db.VarChar(36)
+  roleId      String   @db.VarChar(36)
+  assignedAt  DateTime @default(now()) @db.DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  code        String   @unique @db.VarChar(100)
+  name        String   @db.VarChar(150)
+  description String?  @db.Text
+
+  roles         RolePermission[]
+  employeePermissions EmployeePermission[]
+  templates     PermissionTemplateItem[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId      String @db.VarChar(36)
+  permissionId String @db.VarChar(36)
+
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model PermissionTemplate {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(150)
+  description String?  @db.Text
+  createdById String?  @db.VarChar(36)
+  createdAt   DateTime @default(now()) @db.DateTime
+  updatedAt   DateTime @default(now()) @db.DateTime
+
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  templateItems PermissionTemplateItem[]
+
+  @@map("permission_templates")
+}
+
+model PermissionTemplateItem {
+  templateId String @db.VarChar(36)
+  permissionId String @db.VarChar(36)
+
+  template   PermissionTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, permissionId])
+  @@map("permission_template_items")
+}
+
+model EmployeePermission {
+  id           String   @id @default(uuid())
+  employeeId   String   @db.VarChar(36)
+  permissionId String   @db.VarChar(36)
+  grantedById  String   @db.VarChar(36)
+  createdAt    DateTime @default(now()) @db.DateTime
+
+  employee   EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User @relation(fields: [grantedById], references: [id])
+
+  @@map("employee_permissions")
+}
+
+model EmployeeBranchAssignment {
+  id          String   @id @default(uuid())
+  employeeId  String   @db.VarChar(36)
+  branchId    String   @db.VarChar(36)
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("employee_branch_assignments")
+}
+
+// ==========================================
+// BRANCHES
+// ==========================================
+
+model Branch {
+  id            String   @id @default(uuid())
+  name          String   @db.VarChar(150)
+  city          String   @db.VarChar(100)
+  address       String   @db.Text
+  phone         String?  @db.VarChar(20)
+  latitude      Float?   @db.Decimal
+  longitude     Float?   @db.Decimal
+  openingTime   String?  @db.Time
+  closingTime   String?  @db.Time
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.DateTime
+  updatedAt     DateTime @default(now()) @db.DateTime
+
+  productInventory       ProductInventory[]
+  inventoryTransactions  InventoryTransaction[]
+  inventoryTransfersFrom InventoryTransfer[]
+  inventoryTransfersTo   InventoryTransfer[]
+  orders               Order[]
+  employees            EmployeeBranchAssignment[]
+  branchContacts       BranchContact[]
+  branchWorkingHours   BranchWorkingHour[]
+  productPrices        ProductPrice[]
+
+  @@map("branches")
+}
+
+model BranchWorkingHour {
+  id          String   @id @default(uuid())
+  branchId    String   @db.VarChar(36)
+  dayOfWeek   Int      @db.SmallInt
+  openTime    String?  @db.Time
+  closeTime   String?  @db.Time
+  isClosed    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("branch_working_hours")
+}
+
+model BranchContact {
+  id            String   @id @default(uuid())
+  branchId      String   @db.VarChar(36)
+  contactType   String   @db.VarChar(30)
+  contactValue  String   @db.VarChar(255)
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("branch_contacts")
+}
+
+// ==========================================
+// PRODUCTS & CATALOG
+// ==========================================
+
+model Brand {
+  id            String   @id @default(uuid())
+  name          String   @unique @db.VarChar(150)
+  description   String?  @db.Text
+  logoUrl       String?  @db.Text
+  country       String?  @db.VarChar(100)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.DateTime
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model Category {
+  id            String   @id @default(uuid())
+  parentId      String?  @db.VarChar(36)
+  name          String   @db.VarChar(150)
+  slug          String   @unique @db.VarChar(180)
+  description   String?  @db.Text
+  imageUrl      String?  @db.Text
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.DateTime
+
+  parent        Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  subCategories Category[]     @relation("CategoryHierarchy")
+  products      Product[]
+
+  @@map("categories")
+}
+
+model SkinType {
+  id            String   @id @default(uuid())
+  name          String   @unique @db.VarChar(100)
+  description   String?  @db.Text
+
+  products      ProductSkinType[]
+  skinTestOptions SkinTestOption[]
+  skinTests     SkinTest[]
+
+  @@map("skin_types")
+}
+
+model ProductPurpose {
+  id            String   @id @default(uuid())
+  name          String   @unique @db.VarChar(150)
+  description   String?  @db.Text
+
+  products      ProductPurposeMap[]
+
+  @@map("product_purposes")
+}
+
+model Product {
+  id                  String   @id @default(uuid())
+  brandId             String   @db.VarChar(36)
+  categoryId          String   @db.VarChar(36)
+  name                String   @db.VarChar(255)
+  slug                String   @unique @db.VarChar(255)
+  sku                 String?  @unique @db.VarChar(100)
+  barcode             String?  @db.VarChar(100)
+  description         String?  @db.Text
+  ingredients         String?  @db.Text
+  volume              String?  @db.VarChar(100)
+  usageInstructions   String?  @db.Text
+  countryOfOrigin     String?  @db.VarChar(100)
+  basePrice           Float    @db.Decimal
+  isActive            Boolean  @default(true)
+  isFeatured          Boolean  @default(false)
+  createdById         String   @db.VarChar(36)
+  createdAt           DateTime @default(now()) @db.DateTime
+  updatedAt           DateTime @default(now()) @db.DateTime
+  deletedAt           DateTime? @db.DateTime
+
+  brand               Brand            @relation(fields: [brandId], references: [id])
+  category            Category         @relation(fields: [categoryId], references: [id])
+  created_by          User             @relation(fields: [createdById], references: [id])
+  images              ProductImage[]
+  skinTypes           ProductSkinType[]
+  purposes            ProductPurposeMap[]
+  inventory           ProductInventory[]
+  prices              ProductPrice[]
+  orderItems          OrderItem[]
+  favorites           Favorite[]
+  reviews             Review[]
+  cartItems           CartItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id            String   @id @default(uuid())
+  productId     String   @db.VarChar(36)
+  imageUrl      String   @db.Text
+  altText       String?  @db.VarChar(255)
+  sortOrder     Int      @default(0)
+  isMain        Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.DateTime
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductSkinType {
+  productId    String @db.VarChar(36)
+  skinTypeId   String @db.VarChar(36)
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  skinType   SkinType @relation(fields: [skinTypeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, skinTypeId])
+  @@map("product_skin_types")
+}
+
+model ProductPurposeMap {
+  productId   String @db.VarChar(36)
+  purposeId   String @db.VarChar(36)
+
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purpose   ProductPurpose @relation(fields: [purposeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, purposeId])
+  @@map("product_purposes_map")
+}
+
+model ProductPrice {
+  id              String   @id @default(uuid())
+  productId       String   @db.VarChar(36)
+  branchId        String?  @db.VarChar(36)
+  price           Float    @db.Decimal
+  validFrom       DateTime @db.DateTime
+  validTo         DateTime? @db.DateTime
+  changedById     String   @db.VarChar(36)
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch    Branch? @relation(fields: [branchId], references: [id])
+  changed_by User @relation(fields: [changedById], references: [id])
+
+  @@index([productId, branchId])
+  @@map("product_prices")
+}
+
+// ==========================================
+// INVENTORY
+// ==========================================
+
+model ProductInventory {
+  id             String   @id @default(uuid())
+  productId      String   @db.VarChar(36)
+  branchId       String   @db.VarChar(36)
+  quantity       Int      @default(0)
+  minQuantity    Int      @default(0)
+  updatedAt      DateTime @default(now()) @db.DateTime
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@map("product_inventory")
+}
+
+model InventoryTransaction {
+  id               String   @id @default(uuid())
+  productId        String   @db.VarChar(36)
+  branchId         String   @db.VarChar(36)
+  orderId          String?  @db.VarChar(36)
+  transactionType  String   @db.VarChar(30)
+  quantity         Int
+  quantityBefore   Int
+  quantityAfter    Int
+  comment          String?  @db.Text
+  createdById      String   @db.VarChar(36)
+  createdAt        DateTime @default(now()) @db.DateTime
+
+  product   Product @relation(fields: [productId], references: [id])
+  branch    Branch @relation(fields: [branchId], references: [id])
+  order     Order? @relation(fields: [orderId], references: [id])
+  created_by User @relation(fields: [createdById], references: [id])
+
+  @@index([productId, branchId])
+  @@map("inventory_transactions")
+}
+
+model InventoryTransfer {
+  id             String   @id @default(uuid())
+  fromBranchId   String   @db.VarChar(36)
+  toBranchId     String   @db.VarChar(36)
+  status         String   @db.VarChar(30)
+  createdById    String   @db.VarChar(36)
+  completedById  String?  @db.VarChar(36)
+  createdAt      DateTime @default(now()) @db.DateTime
+  completedAt    DateTime? @db.DateTime
+
+  fromBranch  Branch? @relation("InventoryTransferFrom", fields: [fromBranchId], references: [id])
+  toBranch    Branch? @relation("InventoryTransferTo", fields: [toBranchId], references: [id])
+  created_by  User @relation(fields: [createdById], references: [id])
+  completed_by User? @relation(fields: [completedById], references: [id])
+  transferItems InventoryTransferItem[]
+
+  @@map("inventory_transfers")
+}
+
+model InventoryTransferItem {
+  id          String @id @default(uuid())
+  transferId  String @db.VarChar(36)
+  productId   String @db.VarChar(36)
+  quantity    Int
+
+  transfer   InventoryTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id])
+
+  @@map("inventory_transfer_items")
+}
+
+// ==========================================
+// FAVORITES & CART
+// ==========================================
+
+model Favorite {
+  id          String   @id @default(uuid())
+  userId      String   @db.VarChar(36)
+  productId   String   @db.VarChar(36)
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("favorites")
+}
+
+model Cart {
+  id          String   @id @default(uuid())
+  userId      String   @db.VarChar(36)
+  status      String   @default("active") @db.VarChar(30)
+  createdAt   DateTime @default(now()) @db.DateTime
+  updatedAt   DateTime @default(now()) @db.DateTime
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id          String   @id @default(uuid())
+  cartId      String   @db.VarChar(36)
+  productId   String   @db.VarChar(36)
+  quantity    Int
+  createdAt   DateTime @default(now()) @db.DateTime
+  updatedAt   DateTime @default(now()) @db.DateTime
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+// ==========================================
+// ORDERS
+// ==========================================
+
+model Order {
+  id                  String   @id @default(uuid())
+  orderNumber         String   @unique @db.VarChar(50)
+  userId              String   @db.VarChar(36)
+  branchId            String?  @db.VarChar(36)
+  fulfillmentType     String   @db.VarChar(30)
+  status              String   @db.VarChar(30)
+  subtotal            Float    @db.Decimal
+  discountAmount      Float    @default(0) @db.Decimal
+  deliveryAmount      Float    @default(0) @db.Decimal
+  totalAmount         Float    @db.Decimal
+  currency            String   @default("KGS") @db.VarChar(3)
+  promoCodeId         String?  @db.VarChar(36)
+  customerComment     String?  @db.Text
+  managerId           String?  @db.VarChar(36)
+  confirmedAt         DateTime? @db.DateTime
+  completedAt         DateTime? @db.DateTime
+  cancelledAt         DateTime? @db.DateTime
+  createdAt           DateTime @default(now()) @db.DateTime
+  updatedAt           DateTime @default(now()) @db.DateTime
+
+  user              User?             @relation(fields: [userId], references: [id])
+  branch            Branch?           @relation(fields: [branchId], references: [id])
+  promoCode         PromoCode?        @relation(fields: [promoCodeId], references: [id])
+  manager           User?             @relation(fields: [managerId], references: [id])
+  items             OrderItem[]
+  statusHistory     OrderStatusHistory[]
+  fulfillment       OrderFulfillment?
+  cancellations     OrderCancellation[]
+  payments          Payment[]
+  refunds           Refund[]
+  udsTransactions   OrderBonusOperation[]
+  auditLogs         AuditLog[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(uuid())
+  orderId        String   @db.VarChar(36)
+  productId      String   @db.VarChar(36)
+  productName    String   @db.VarChar(255)
+  sku            String?  @db.VarChar(100)
+  quantity       Int
+  unitPrice      Float    @db.Decimal
+  discountAmount Float    @default(0) @db.Decimal
+  totalPrice     Float    @db.Decimal
+  createdAt      DateTime @default(now()) @db.DateTime
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id           String   @id @default(uuid())
+  orderId      String   @db.VarChar(36)
+  oldStatus    String?  @db.VarChar(30)
+  newStatus    String   @db.VarChar(30)
+  changedById  String?  @db.VarChar(36)
+  comment      String?  @db.Text
+  createdAt    DateTime @default(now()) @db.DateTime
+
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changed_by  User? @relation(fields: [changedById], references: [id])
+
+  @@map("order_status_history")
+}
+
+model OrderFulfillment {
+  id                      String   @id @default(uuid())
+  orderId                 String   @unique @db.VarChar(36)
+  fulfillmentType         String   @db.VarChar(30)
+  branchId                String?  @db.VarChar(36)
+  addressId               String?  @db.VarChar(36)
+  deliveryAddressSnapshot String?  @db.Text
+  recipientName           String?  @db.VarChar(150)
+  recipientPhone          String?  @db.VarChar(20)
+  deliveryComment         String?  @db.Text
+  createdAt               DateTime @default(now()) @db.DateTime
+
+  order   Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  branch  Branch?       @relation(fields: [branchId], references: [id])
+  address UserAddress?  @relation(fields: [addressId], references: [id])
+
+  @@map("order_fulfillment")
+}
+
+model OrderCancellation {
+  id          String   @id @default(uuid())
+  orderId     String   @unique @db.VarChar(36)
+  cancelledById String  @db.VarChar(36)
+  reason      String   @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime
+
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cancelled_by User @relation(fields: [cancelledById], references: [id])
+
+  @@map("order_cancellations")
+}
+
+// ==========================================
+// PAYMENTS & REFUNDS
+// ==========================================
+
+model PaymentProvider {
+  id              String   @id @default(uuid())
+  code            String   @unique @db.VarChar(50)
+  name            String   @db.VarChar(150)
+  providerType    String   @db.VarChar(30)
+  isActive        Boolean  @default(true)
+  configuration   String?  @db.Text
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  payments Payment[]
+
+  @@map("payment_providers")
+}
+
+model Payment {
+  id                       String   @id @default(uuid())
+  orderId                  String   @db.VarChar(36)
+  providerId               String?  @db.VarChar(36)
+  paymentMethod            String   @db.VarChar(30)
+  amount                   Float    @db.Decimal
+  currency                 String   @default("KGS") @db.VarChar(3)
+  status                   String   @db.VarChar(30)
+  externalTransactionId    String?  @db.VarChar(255)
+  idempotencyKey           String   @unique @db.VarChar(255)
+  paidAt                   DateTime? @db.DateTime
+  createdAt                DateTime @default(now()) @db.DateTime
+  updatedAt                DateTime @default(now()) @db.DateTime
+
+  order       Order          @relation(fields: [orderId], references: [id])
+  provider    PaymentProvider? @relation(fields: [providerId], references: [id])
+  events      PaymentEvent[]
+  receipts    PaymentReceipt[]
+  refunds     Refund[]
+
+  @@index([orderId])
+  @@index([externalTransactionId])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id                  String   @id @default(uuid())
+  paymentId           String   @db.VarChar(36)
+  externalEventId     String   @unique @db.VarChar(255)
+  eventType           String   @db.VarChar(100)
+  payload             String   @db.Text
+  processedAt         DateTime? @db.DateTime
+  createdAt           DateTime @default(now()) @db.DateTime
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_events")
+}
+
+model PaymentReceipt {
+  id              String   @id @default(uuid())
+  paymentId       String   @unique @db.VarChar(36)
+  receiptNumber   String   @unique @db.VarChar(100)
+  receiptUrl      String?  @db.Text
+  receiptData     String?  @db.Text
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_receipts")
+}
+
+model Refund {
+  id                   String   @id @default(uuid())
+  paymentId            String   @db.VarChar(36)
+  orderId              String   @db.VarChar(36)
+  amount               Float    @db.Decimal
+  reason               String   @db.Text
+  status               String   @db.VarChar(30)
+  externalRefundId     String?  @db.VarChar(255)
+  processedById        String?  @db.VarChar(36)
+  processedAt          DateTime? @db.DateTime
+  createdAt            DateTime @default(now()) @db.DateTime
+
+  payment      Payment @relation(fields: [paymentId], references: [id])
+  order        Order @relation(fields: [orderId], references: [id])
+  processed_by User? @relation(fields: [processedById], references: [id])
+
+  items        RefundItem[]
+
+  @@index([paymentId])
+  @@map("refunds")
+}
+
+model RefundItem {
+  id             String @id @default(uuid())
+  refundId       String @db.VarChar(36)
+  orderItemId    String @db.VarChar(36)
+  quantity       Int
+  reason         String?  @db.Text
+
+  refund      Refund      @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem   @relation(fields: [orderItemId], references: [id])
+
+  @@map("refund_items")
+}
+
+// ==========================================
+// PROMOTIONS & PROMO CODES
+// ==========================================
+
+model Promotion {
+  id              String   @id @default(uuid())
+  name            String   @db.VarChar(200)
+  description     String?  @db.Text
+  discountType    String   @db.VarChar(30)
+  discountValue   Float    @db.Decimal
+  startsAt        DateTime @db.DateTime
+  endsAt          DateTime @db.DateTime
+  isActive        Boolean  @default(true)
+  createdById     String   @db.VarChar(36)
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  created_by  User        @relation(fields: [createdById], references: [id])
+  promoCodes  PromoCode[]
+
+  @@map("promotions")
+}
+
+model PromoCode {
+  id               String   @id @default(uuid())
+  code             String   @unique @db.VarChar(100)
+  promotionId      String?  @db.VarChar(36)
+  discountType     String   @db.VarChar(30)
+  discountValue    Float    @db.Decimal
+  minOrderAmount   Float    @default(0) @db.Decimal
+  maxUses          Int?     @db.Int
+  currentUses      Int      @default(0)
+  startsAt         DateTime? @db.DateTime
+  endsAt           DateTime? @db.DateTime
+  isActive         Boolean  @default(true)
+  createdById      String   @db.VarChar(36)
+  createdAt        DateTime @default(now()) @db.DateTime
+
+  promotion   Promotion?    @relation(fields: [promotionId], references: [id])
+  created_by  User          @relation(fields: [createdById], references: [id])
+  usages      PromoCodeUsage[]
+
+  @@map("promo_codes")
+}
+
+model PromoCodeUsage {
+  id                String   @id @default(uuid())
+  promoCodeId       String   @db.VarChar(36)
+  userId            String   @db.VarChar(36)
+  orderId           String   @db.VarChar(36)
+  discountAmount    Float    @db.Decimal
+  createdAt         DateTime @default(now()) @db.DateTime
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+  order     Order     @relation(fields: [orderId], references: [id])
+
+  @@map("promo_code_usages")
+}
+
+// ==========================================
+// UDS & LOYALTY
+// ==========================================
+
+model UDSAccount {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique @db.VarChar(36)
+  externalCustomerId     String?  @db.VarChar(255)
+  externalAccountId      String?  @db.VarChar(255)
+  balance                Float    @default(0) @db.Decimal
+  syncedAt               DateTime? @db.DateTime
+  createdAt              DateTime @default(now()) @db.DateTime
+
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   UDSTransaction[]
+  orderBonusOps  OrderBonusOperation[]
+
+  @@map("uds_accounts")
+}
+
+model UDSTransaction {
+  id                      String   @id @default(uuid())
+  udsAccountId            String   @db.VarChar(36)
+  orderId                 String?  @db.VarChar(36)
+  externalTransactionId   String   @unique @db.VarChar(255)
+  transactionType         String   @db.VarChar(30)
+  amount                  Float    @db.Decimal
+  status                  String   @db.VarChar(30)
+  createdAt               DateTime @default(now()) @db.DateTime
+
+  udsAccount UDSAccount @relation(fields: [udsAccountId], references: [id], onDelete: Cascade)
+  order      Order?     @relation(fields: [orderId], references: [id])
+
+  @@map("uds_transactions")
+}
+
+model OrderBonusOperation {
+  id               String   @id @default(uuid())
+  orderId          String   @db.VarChar(36)
+  udsTransactionId String   @db.VarChar(36)
+  bonusAmount      Float    @db.Decimal
+
+  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  udsTransaction UDSTransaction @relation(fields: [udsTransactionId], references: [id])
+
+  @@map("order_bonus_operations")
+}
+
+// ==========================================
+// REVIEWS
+// ==========================================
+
+model Review {
+  id              String   @id @default(uuid())
+  userId          String   @db.VarChar(36)
+  productId       String   @db.VarChar(36)
+  rating          Int      @db.SmallInt
+  comment         String?  @db.Text
+  status          String   @default("pending") @db.VarChar(30)
+  moderatedById   String?  @db.VarChar(36)
+  moderatedAt     DateTime? @db.DateTime
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  user           User       @relation(fields: [userId], references: [id])
+  product        Product    @relation(fields: [productId], references: [id])
+  moderated_by   User?      @relation(fields: [moderatedById], references: [id])
+  images         ReviewImage[]
+  replies        ReviewReply[]
+
+  @@index([productId, status])
+  @@map("reviews")
+}
+
+model ReviewImage {
+  id            String   @id @default(uuid())
+  reviewId      String   @db.VarChar(36)
+  imageUrl      String   @db.Text
+  createdAt     DateTime @default(now()) @db.DateTime
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_images")
+}
+
+model ReviewReply {
+  id            String   @id @default(uuid())
+  reviewId      String   @db.VarChar(36)
+  employeeId    String   @db.VarChar(36)
+  replyText     String   @db.Text
+  createdAt     DateTime @default(now()) @db.DateTime
+  updatedAt     DateTime @default(now()) @db.DateTime
+
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  employee  User   @relation(fields: [employeeId], references: [id])
+
+  @@map("review_replies")
+}
+
+// ==========================================
+// CONSULTATIONS & SKIN TESTS
+// ==========================================
+
+model Consultation {
+  id            String   @id @default(uuid())
+  userId        String?  @db.VarChar(36)
+  name          String   @db.VarChar(150)
+  phone         String   @db.VarChar(20)
+  email         String?  @db.VarChar(255)
+  message       String?  @db.Text
+  status        String   @default("new") @db.VarChar(30)
+  assignedToId  String?  @db.VarChar(36)
+  createdAt     DateTime @default(now()) @db.DateTime
+  updatedAt     DateTime @default(now()) @db.DateTime
+
+  user        User?      @relation(fields: [userId], references: [id])
+  assigned_to User?      @relation(fields: [assignedToId], references: [id])
+
+  @@map("consultations")
+}
+
+model SkinTest {
+  id             String   @id @default(uuid())
+  userId         String   @db.VarChar(36)
+  skinTypeId     String?  @db.VarChar(36)
+  resultData     String?  @db.Text
+  completedAt    DateTime @default(now()) @db.DateTime
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skinType   SkinType?  @relation(fields: [skinTypeId], references: [id])
+  answers    SkinTestAnswer[]
+
+  @@map("skin_tests")
+}
+
+model SkinTestQuestion {
+  id            String   @id @default(uuid())
+  questionText  String   @db.Text
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdById   String   @db.VarChar(36)
+  createdAt     DateTime @default(now()) @db.DateTime
+  updatedAt     DateTime @default(now()) @db.DateTime
+
+  created_by   User           @relation(fields: [createdById], references: [id])
+  options      SkinTestOption[]
+  answers      SkinTestAnswer[]
+
+  @@map("skin_test_questions")
+}
+
+model SkinTestOption {
+  id            String   @id @default(uuid())
+  questionId    String   @db.VarChar(36)
+  optionText    String   @db.Text
+  skinTypeId    String?  @db.VarChar(36)
+  score         Float    @default(0) @db.Decimal
+  sortOrder     Int      @default(0)
+
+  question  SkinTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  skinType  SkinType?        @relation(fields: [skinTypeId], references: [id])
+  answers   SkinTestAnswer[]
+
+  @@map("skin_test_options")
+}
+
+model SkinTestAnswer {
+  id           String   @id @default(uuid())
+  skinTestId   String   @db.VarChar(36)
+  questionId   String   @db.VarChar(36)
+  optionId     String   @db.VarChar(36)
+  createdAt    DateTime @default(now()) @db.DateTime
+
+  skinTest  SkinTest         @relation(fields: [skinTestId], references: [id], onDelete: Cascade)
+  question  SkinTestQuestion @relation(fields: [questionId], references: [id])
+  option    SkinTestOption   @relation(fields: [optionId], references: [id])
+
+  @@map("skin_test_answers")
+}
+
+model SkinRecommendation {
+  id           String   @id @default(uuid())
+  skinTypeId   String   @db.VarChar(36)
+  productId    String   @db.VarChar(36)
+  priority     Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  skinType  SkinType @relation(fields: [skinTypeId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("skin_recommendations")
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id                  String   @id @default(uuid())
+  userId              String   @db.VarChar(36)
+  title               String   @db.VarChar(255)
+  message             String   @db.Text
+  notificationType    String   @db.VarChar(50)
+  relatedOrderId      String?  @db.VarChar(36)
+  isRead              Boolean  @default(false)
+  readAt              DateTime? @db.DateTime
+  createdAt           DateTime @default(now()) @db.DateTime
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relatedOrder Order?           @relation(fields: [relatedOrderId], references: [id])
+  deliveries   NotificationDelivery[]
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                   String   @id @default(uuid())
+  notificationId       String   @db.VarChar(36)
+  channel              String   @db.VarChar(30)
+  recipient            String   @db.VarChar(255)
+  providerMessageId    String?  @db.VarChar(255)
+  status               String   @db.VarChar(30)
+  errorMessage         String?  @db.Text
+  sentAt               DateTime? @db.DateTime
+  createdAt            DateTime @default(now()) @db.DateTime
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_deliveries")
+}
+
+model PushDevice {
+  id              String   @id @default(uuid())
+  userId          String   @db.VarChar(36)
+  platform        String   @db.VarChar(30)
+  pushToken       String   @unique @db.Text
+  isActive        Boolean  @default(true)
+  lastUsedAt      DateTime? @db.DateTime
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_devices")
+}
+
+// ==========================================
+// CMS & CONTENT
+// ==========================================
+
+model Banner {
+  id                   String   @id @default(uuid())
+  title                String   @db.VarChar(255)
+  subtitle             String?  @db.Text
+  imageUrl             String   @db.Text
+  mobileImageUrl       String?  @db.Text
+  linkUrl              String?  @db.Text
+  position             Int      @default(0)
+  startsAt             DateTime? @db.DateTime
+  endsAt               DateTime? @db.DateTime
+  isActive             Boolean  @default(true)
+  createdById          String   @db.VarChar(36)
+  createdAt            DateTime @default(now()) @db.DateTime
+
+  created_by User @relation(fields: [createdById], references: [id])
+
+  @@map("banners")
+}
+
+model ContentPage {
+  id            String   @id @default(uuid())
+  slug          String   @unique @db.VarChar(180)
+  title         String   @db.VarChar(255)
+  content       String   @db.Text
+  language      String   @db.VarChar(5)
+  isPublished   Boolean  @default(false)
+  updatedById   String   @db.VarChar(36)
+  updatedAt     DateTime @default(now()) @db.DateTime
+
+  updated_by User @relation(fields: [updatedById], references: [id])
+
+  @@map("content_pages")
+}
+
+model SocialMediaSetting {
+  id              String   @id @default(uuid())
+  platform        String   @db.VarChar(30)
+  profileUrl      String   @db.Text
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  @@map("social_media_settings")
+}
+
+model SocialMediaPost {
+  id                String   @id @default(uuid())
+  platform          String   @db.VarChar(30)
+  externalPostId    String   @unique @db.VarChar(255)
+  mediaUrl          String?  @db.Text
+  postUrl           String?  @db.Text
+  caption           String?  @db.Text
+  publishedAt       DateTime? @db.DateTime
+  syncedAt          DateTime? @db.DateTime
+
+  @@map("social_media_posts")
+}
+
+// ==========================================
+// AUDIT & SYSTEM
+// ==========================================
+
+model AuditLog {
+  id              String   @id @default(uuid())
+  userId          String?  @db.VarChar(36)
+  action          String   @db.VarChar(100)
+  entityType      String   @db.VarChar(100)
+  entityId        String?  @db.VarChar(36)
+  oldValues       String?  @db.Text
+  newValues       String?  @db.Text
+  ipAddress       String?  @db.Inet
+  userAgent       String?  @db.Text
+  createdAt       DateTime @default(now()) @db.DateTime
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique @db.VarChar(150)
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedById String?  @db.VarChar(36)
+  updatedAt   DateTime @default(now()) @db.DateTime
+
+  updated_by User? @relation(fields: [updatedById], references: [id])
+
+  @@map("system_settings")
+}
